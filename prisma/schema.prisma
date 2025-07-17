@@ -13,3 +13,125 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id              String           @id @default(uuid())
+  avatar          String?
+  lastName        String
+  firstName       String
+  email           String           @unique
+  password        String
+  phone           String
+  address         String
+  city            String
+  country         String
+  zipCode         String
+  role            Roles
+  companyId       String
+  company         Company          @relation(fields: [companyId], references: [id])
+  leaveRequests   LeaveRequest[]
+  goals           Goal[]
+  onboardingTasks OnboardingTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@map("users")
+}
+
+model Company {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  address         String
+  city            String
+  country         String
+  zipCode         String
+  logo            String?
+  phone           String
+  users           User[]
+  leaveRequests   LeaveRequest[]
+  goals           Goal[]
+  onboardingTasks OnboardingTask[]
+
+  createdAt DateTime @default(now())
+
+  @@index([name])
+  @@map("companies")
+}
+
+model LeaveRequest {
+  id        String             @id @default(uuid())
+  userId    String
+  companyId String
+  startDate DateTime
+  endDate   DateTime
+  status    LeaveRequestStatus
+  user      User               @relation(fields: [userId], references: [id])
+  company   Company            @relation(fields: [companyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, companyId])
+  @@map("leave_requests")
+}
+
+model Goal {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  userId      String
+  companyId   String
+  status      GoalStatus
+  user        User       @relation(fields: [userId], references: [id])
+  company     Company    @relation(fields: [companyId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([userId, companyId])
+  @@map("goals")
+}
+
+model OnboardingTask {
+  id           String     @id @default(uuid())
+  title        String
+  description  String?
+  assignedToId String
+  companyId    String
+  status       TaskStatus
+  assignedTo   User       @relation(fields: [assignedToId], references: [id])
+  company      Company    @relation(fields: [companyId], references: [id])
+  dueDate      DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@index([assignedToId, companyId])
+  @@map("onboarding_tasks")
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum Roles {
+  RH
+  ADMIN
+  COLLABORATOR
+  MANAGER
+  DIRECTOR
+}
+
+enum GoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+}
