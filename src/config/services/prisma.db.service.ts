@@ -8,4 +8,4 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 }
 
-export const prismaService = new PrismaService();
+export const prisma = new PrismaService();
