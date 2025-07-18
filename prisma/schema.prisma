@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -14,108 +13,349 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Utilisateur du système (collaborateur, manager, RH, etc.)
 model User {
-  id              String           @id @default(uuid())
-  avatar          String?
-  lastName        String
-  firstName       String
-  email           String           @unique
-  password        String
-  phone           String
-  address         String
-  city            String
-  country         String
-  zipCode         String
-  role            Roles
-  companyId       String
-  company         Company          @relation(fields: [companyId], references: [id])
-  leaveRequests   LeaveRequest[]
-  goals           Goal[]
-  onboardingTasks OnboardingTask[]
+  id String @id @default(uuid())
 
+  /// Informations de structure
+  companyId  String
+  teamId     String?
+  positionId String?
+  contractId String?
+
+  /// Informations personnelles
+  firstName   String
+  lastName    String
+  email       String    @unique
+  phone       String?
+  address     String?
+  birthDate   DateTime?
+  gender      Gender?
+  avatarUrl   String?
+  password    String
+  city        String
+  country     String
+  nationality String
+
+  /// Informations professionnelles
+  poste     JobPosition
+  startDate DateTime?
+  endDate   DateTime?
+
+  /// Système
+  isActive      Boolean @default(true)
+  emailVerified Boolean @default(false)
+  refreshToken  String?
+
+  /// Enum rôle (admin, manager, etc.)
+  companyRole   CompanyRole? @relation(fields: [companyRoleId], references: [id])
+  companyRoleId String?
+
+  /// Relations
+  company Company @relation(fields: [companyId], references: [id])
+  team    Team?   @relation("TeamMembers", fields: [teamId], references: [id]) // Appartenance à une équipe
+
+  managedTeam Team? @relation("TeamManager") // Si l'utilisateur est responsable d’une équipe
+
+  employeeContract Contract[]
+
+  leaves       Leave[]
+  hrDocuments  HRDocument[]
+  objectives   Objective[]
+  feedbacks    Feedback[]
+  evaluations  Evaluation[] @relation("EvaluatedUser")
+  reviews      Evaluation[] @relation("ReviewerUser")
+  userTraining Training[]
+  timesheet    Timesheet[]
+
+  /// Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([email])
-  @@map("users")
+  @@index([companyId])
+  @@index([teamId])
 }
 
+/// Entreprise ou entité juridique (peut regrouper plusieurs équipes)
+/// Entreprise ou entité juridique (peut regrouper plusieurs équipes)
 model Company {
-  id              String           @id @default(uuid())
-  name            String           @unique
-  address         String
-  city            String
-  country         String
-  zipCode         String
-  logo            String?
-  phone           String
-  users           User[]
-  leaveRequests   LeaveRequest[]
-  goals           Goal[]
-  onboardingTasks OnboardingTask[]
+  id String @id @default(uuid())
 
+  /// Informations légales
+  name             String
+  siret            String? // Numéro d'identification légale (France)
+  vatNumber        String? // Numéro de TVA
+  registrationCity String?
+  legalStatus      CompanyLegalStatus @default(SAS) // SAS, SARL, etc.
+  industry         String? // Secteur d’activité
+
+  /// Informations de contact
+  email   String?
+  phone   String?
+  website String?
+  address String?
+  logoUrl String?
+
+  /// Statut
+  isActive Boolean @default(true)
+
+  /// Timestamps
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  users       User[]
+  teams       Team[]
+  documents   HRDocument[]
+  policies    Policy[]
+  contract    Contract[]
+  companyRole CompanyRole[]
 
   @@index([name])
-  @@map("companies")
+  @@index([siret])
+  @@index([vatNumber])
+  @@index([registrationCity])
+  @@index([legalStatus])
+  @@index([industry])
 }
 
-model LeaveRequest {
-  id        String             @id @default(uuid())
-  userId    String
+/// Équipe à laquelle appartiennent les utilisateurs (ex: Équipe RH)
+model Team {
+  id        String @id @default(uuid())
   companyId String
-  startDate DateTime
-  endDate   DateTime
-  status    LeaveRequestStatus
-  user      User               @relation(fields: [userId], references: [id])
-  company   Company            @relation(fields: [companyId], references: [id])
 
+  /// Informations de base
+  name        String
+  description String?
+  managerId   String? @unique // Id du responsable d'équipe (User)
+
+  /// Relations
+  company Company @relation(fields: [companyId], references: [id])
+
+  users   User[] @relation("TeamMembers") // Membres de l’équipe
+  manager User?  @relation("TeamManager", fields: [managerId], references: [id]) // Responsable
+
+  objectives Objective[]
+
+  /// Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([userId, companyId])
-  @@map("leave_requests")
+  @@index([companyId])
+  @@index([managerId])
 }
 
-model Goal {
-  id          String     @id @default(uuid())
+/// Contrat de travail associé à un collaborateur
+model Contract {
+  id        String  @id @default(uuid())
+  userId    String
+  companyId String? // Si un contrat peut dépendre directement de l'entreprise
+
+  /// Informations du contrat
+  contractType ContractType @default(CDD) // CDI, CDD, Stage, Freelance, etc.
+  startDate    DateTime
+  endDate      DateTime?
+  probationEnd DateTime? // Fin de période d’essai
+  salary       Float? // Salaire de base (brut)
+  isActive     Boolean      @default(true)
+
+  /// Relations
+  user    User     @relation(fields: [userId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([companyId])
+}
+
+/// Demande de congé effectuée par un utilisateur
+model Leave {
+  id     String @id @default(uuid())
+  userId String
+
+  /// Type de congé (vacances, maladie, etc.)
+  leave_type LeaveType
+
+  /// Période de congé
+  startDate DateTime
+  endDate   DateTime
+
+  /// Gestion du statut
+  status Status  @default(PENDING)
+  reason String?
+
+  /// Relations
+  user User @relation(fields: [userId], references: [id])
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+/// Objectifs individuels ou d’équipe (OKR, KPI, etc.)
+model Objective {
+  id     String  @id @default(uuid())
+  userId String?
+  teamId String?
+
+  /// Relations
+  user User? @relation(fields: [userId], references: [id])
+  team Team? @relation(fields: [teamId], references: [id])
+
+  /// Informations de l'objectif
+  title         String
+  description   String?
+  objectiveType ObjectiveType @default(INDIVIDUAL) // INDIVIDUAL ou TEAM
+  status        Status        @default(PENDING)
+  startDate     DateTime
+  endDate       DateTime
+  progress      Int           @default(0) // en pourcentage
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([teamId])
+}
+
+/// Document lié à un utilisateur ou à une entreprise (contrat, politique RH, etc.)
+model HRDocument {
+  id        String  @id @default(uuid())
+  userId    String?
+  companyId String?
+
+  /// Relations
+  user    User?    @relation(fields: [userId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
+
+  /// Informations du document
+  name       String
+  type       DocumentType
+  url        String // Lien vers le fichier (S3, drive, etc.)
+  uploadedAt DateTime     @default(now())
+}
+
+/// Feedback reçu ou donné par un collaborateur
+model Feedback {
+  id String @id @default(uuid())
+
+  /// L'utilisateur qui a donné ou reçu le feedback
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  /// Timestamps (optionnel)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Politiques internes de l’entreprise (charte, RGPD, etc.)
+model Policy {
+  id        String @id @default(uuid())
+  companyId String
+
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Évaluation de performance (ex : entretien annuel)
+model Evaluation {
+  id         String  @id @default(uuid())
+  userId     String
+  reviewerId String?
+
+  // Relations
+  user     User  @relation("EvaluatedUser", fields: [userId], references: [id])
+  reviewer User? @relation("ReviewerUser", fields: [reviewerId], references: [id])
+
+  // Détails de l’évaluation
+  evaluationDate DateTime @default(now())
+  score          Int? // Score sur 100 par exemple
+  strengths      String? // Points forts
+  weaknesses     String? // Points faibles
+  comments       String? // Commentaires généraux
+  status         Status   @default(PENDING)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Formation suivie par un utilisateur
+model Training {
+  id          String   @id @default(uuid())
+  userId      String
   title       String
   description String?
-  userId      String
-  companyId   String
-  status      GoalStatus
-  user        User       @relation(fields: [userId], references: [id])
-  company     Company    @relation(fields: [companyId], references: [id])
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  startDate   DateTime
+  endDate     DateTime
+  status      Status   @default(PLANNED)
 
-  @@index([userId, companyId])
-  @@map("goals")
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-model OnboardingTask {
-  id           String     @id @default(uuid())
-  title        String
-  description  String?
-  assignedToId String
-  companyId    String
-  status       TaskStatus
-  assignedTo   User       @relation(fields: [assignedToId], references: [id])
-  company      Company    @relation(fields: [companyId], references: [id])
-  dueDate      DateTime?
-  createdAt    DateTime   @default(now())
+/// Feuille de temps pour suivi horaire (heures de travail)
+model Timesheet {
+  id     String @id @default(uuid())
+  userId String
 
-  @@index([assignedToId, companyId])
-  @@map("onboarding_tasks")
+  date        DateTime
+  hoursWorked Float // Nombre d'heures travaillées ce jour-là
+  description String? // Ex : "Tâches back-end sur le module RH"
+  status      Status   @default(PENDING)
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-enum LeaveRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
+/// Permission globale prédéfinie (ex: manage_users, view_timesheet)
+model Permission {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+
+  roles CompanyRolePermission[]
+}
+
+/// Rôle personnalisé au sein d'une entreprise (ex: Responsable RH)
+model CompanyRole {
+  id        String @id @default(uuid())
+  name      String
+  companyId String
+  baseRole  Roles // Enum globale pour classification (ADMIN, MANAGER, etc.)
+
+  company     Company                 @relation(fields: [companyId], references: [id])
+  users       User[]
+  permissions CompanyRolePermission[]
+
+  @@unique([companyId, name]) // Chaque nom de rôle est unique dans une entreprise
+}
+
+/// Pivot entre rôle d'entreprise et permissions
+model CompanyRolePermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role       CompanyRole @relation(fields: [roleId], references: [id])
+  permission Permission  @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
 }
 
 enum Roles {
+  DRH
   RH
   ADMIN
   COLLABORATOR
@@ -123,15 +363,76 @@ enum Roles {
   DIRECTOR
 }
 
-enum GoalStatus {
-  NOT_STARTED
+enum LeaveType {
+  VACATION
+  SICK_LEAVE
+  MATERNITY_LEAVE
+  PATERNITY_LEAVE
+  OTHER
+}
+
+enum ContractType {
+  CDI
+  CDD
+  FREELANCE
+  STAGE
+  ALTERNANCE
+  AUTRE
+}
+
+enum JobPosition {
+  DEVELOPER
+  RH
+  MANAGER
+  DIRECTOR
+}
+
+enum ObjectiveType {
+  INDIVIDUAL
+  TEAM
+}
+
+enum DocumentType {
+  CONTRACT
+  POLICY
+  CERTIFICATE
+  PAYSLIP
+  OTHER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum EvaluationType {
+  ANNUAL
+  MID_YEAR
+  PROBATION
+}
+
+enum Status {
+  PENDING
+  APPROVED
+  REJECTED
+  PLANNED
   IN_PROGRESS
   COMPLETED
   CANCELLED
+  VALIDATED
+  FAILED
 }
 
-enum TaskStatus {
-  PENDING
-  IN_PROGRESS
-  DONE
+enum CompanyLegalStatus {
+  SAS // Société par Actions Simplifiée
+  SASU // Société par Actions Simplifiée Unipersonnelle
+  SARL // Société à Responsabilité Limitée
+  EURL // Entreprise Unipersonnelle à Responsabilité Limitée
+  SA // Société Anonyme
+  SCI // Société Civile Immobilière
+  SCOP // Société Coopérative et Participative
+  EI // Entreprise Individuelle
+  AUTOENTREPRENEUR // Micro-entrepreneur
+  SNC // Société en Nom Collectif
+  SCA // Société en Commandite par Actions
 }
