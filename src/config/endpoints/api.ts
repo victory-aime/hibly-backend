@@ -4,6 +4,7 @@ export const API_URL = {
   AUTH: {
     AUTH: `${BASE_APIS_URL.UNSECURED}/auth`,
     LOGIN: `login`,
+    REFRESH_TOKEN: `refresh-token`,
     LOGOUT: `logout`,
     FORGOT_PASSWORD: `forgot-password`,
     RESET_PASSWORD: `reset-password`,

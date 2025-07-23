@@ -27,13 +27,13 @@ export class JwtTokenService {
     );
   }
 
-  verifyAccessToken(token: string): any {
+  verifyAccessToken(token: string) {
     return this.jwtService.verify(token, {
       secret: process.env.JWT_SECRET_KEY,
     });
   }
 
-  verifyRefreshToken(token: string): any {
+  verifyRefreshToken(token: string) {
     return this.jwtService.verify(token, {
       secret: process.env.REFRESH_SECRET,
     });
