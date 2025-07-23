@@ -38,10 +38,8 @@ export class AuthService {
     refreshToken: string,
   ): Promise<{ access_token: string; refresh_token: string }> {
     try {
-      const payload = this.jwtTokenService.verifyRefreshToken(refreshToken);
-
-      console.log('payload', payload);
-
+      const payload =
+        await this.jwtTokenService.verifyRefreshToken(refreshToken);
       const { user } = await this.usersService.findUser(payload.sub);
 
       if (!user || !user.refreshToken) {

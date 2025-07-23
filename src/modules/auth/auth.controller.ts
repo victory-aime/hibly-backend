@@ -8,8 +8,12 @@ export class AuthController {
 
   @Post(API_URL.AUTH.LOGIN)
   async login(@Body() user: { email: string; password: string }) {
-    console.log(user);
     return this.authService.login(user);
+  }
+
+  @Post(API_URL.AUTH.REFRESH_TOKEN)
+  async register(@Body() data: { refresh_token: string }) {
+    return this.authService.refreshTokens(data.refresh_token);
   }
 
   @Post(API_URL.AUTH.LOGOUT)
