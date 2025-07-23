@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/victory-aime/hibly-backend/compare/v1.0.1...v1.0.2) (2025-07-23)
+
+
+### Bug Fixes
+
+* **auth:** refresh token ([9e7499c](https://github.com/victory-aime/hibly-backend/commit/9e7499c83cb7d8f864c5afd7f9bdb473d56e145e))
+
 ## [1.0.1](https://github.com/victory-aime/hibly-backend/compare/v1.0.0...v1.0.1) (2025-07-22)
 
 
